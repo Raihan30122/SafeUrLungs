@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>SafeUrLungs – Air Quality Map</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            font-family: 'Inter', sans-serif;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        #map {
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* Header */
+        .map-header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(135deg, #8B5CF6 0%, #EC4899 50%, #F59E0B 100%);
+            padding: 12px 16px;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: white;
+        }
+
+        .header-icon {
+            font-size: 24px;
+        }
+
+        .header-text h1 {
+            font-size: 18px;
+            font-weight: 800;
+        }
+
+        .header-text p {
+            font-size: 11px;
+            opacity: 0.95;
+            font-weight: 500;
+        }
+
+        .header-stats {
+            display: flex;
+            gap: 12px;
+        }
+
+        .stat-badge {
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            padding: 6px 12px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 16px;
+            font-weight: 800;
+            color: white;
+        }
+
+        .stat-label {
+            font-size: 9px;
+            color: rgba(255, 255, 255, 0.9);
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        /* Layer Control */
+        .layer-control {
+            position: absolute;
+            top: 70px;
+            right: 15px;
+            background: white;
+            padding: 16px;
+            border-radius: 16px;
+            z-index: 1000;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+            min-width: 180px;
+        }
+
+        .layer-control h3 {
+            font-size: 14px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: #1F2937;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .layer-item {
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .layer-item:hover {
+            background: #F3F4F6;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 42px;
+            height: 22px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #D1D5DB;
+            border-radius: 22px;
+            transition: 0.3s;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 3px;
+            bottom: 3px;
+            background: white;
+            border-radius: 50%;
+            transition: 0.3s;
+        }
+
+        input:checked + .toggle-slider {
+            background: linear-gradient(135deg, #8B5CF6, #EC4899);
+        }
+
+        input:checked + .toggle-slider:before {
+            transform: translateX(20px);
+        }
+
+        .layer-label {
+            flex: 1;
+            font-size: 13px;
+            font-weight: 600;
+            color: #374151;
+        }
+
+        /* Legend */
+        .legend {
+            position: absolute;
+            bottom: 20px;
+            left: 15px;
+            background: white;
+            padding: 16px;
+            border-radius: 16px;
+            z-index: 1000;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+            min-width: 240px;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
+        .legend h3 {
+            font-size: 14px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: #1F2937;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            padding: 6px;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .legend-item:hover {
+            background: #F9FAFB;
+            transform: translateX(3px);
+        }
+
+        .legend-color {
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            margin-right: 10px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+
+        .legend-text {
+            flex: 1;
+        }
+
+        .legend-label {
+            font-size: 13px;
+            font-weight: 700;
+            color: #1F2937;
+            margin-bottom: 1px;
+        }
+
+        .legend-range {
+            font-size: 10px;
+            color: #6B7280;
+            font-weight: 600;
+        }
+
+        /* Custom Popup */
+        .leaflet-popup-content-wrapper {
+            border-radius: 14px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+            padding: 0;
+            overflow: hidden;
+        }
+
+        .leaflet-popup-content {
+            margin: 0;
+            min-width: 220px;
+        }
+
+        .popup-header {
+            background: linear-gradient(135deg, #8B5CF6, #EC4899);
+            padding: 12px;
+            color: white;
+        }
+
+        .popup-title {
+            font-size: 15px;
+            font-weight: 700;
+            margin-bottom: 3px;
+        }
+
+        .popup-coords {
+            font-size: 11px;
+            opacity: 0.9;
+            font-family: monospace;
+        }
+
+        .popup-body {
+            padding: 12px;
+        }
+
+        .popup-aqi {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px;
+            background: #F3F4F6;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .popup-aqi-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #6B7280;
+        }
+
+        .popup-aqi-value {
+            font-size: 18px;
+            font-weight: 800;
+            padding: 4px 10px;
+            border-radius: 6px;
+            color: white;
+        }
+
+        .popup-actions {
+            display: flex;
+            gap: 6px;
+        }
+
+        .popup-btn {
+            flex: 1;
+            padding: 8px;
+            border: none;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+        }
+
+        .btn-navigate {
+            background: linear-gradient(135deg, #3B82F6, #2563EB);
+            color: white;
+        }
+
+        .btn-navigate:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+
+        .btn-delete {
+            background: linear-gradient(135deg, #EF4444, #DC2626);
+            color: white;
+        }
+
+        .btn-delete:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+        }
+
+        /* Loading Overlay - SIMPLIFIED */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, #8B5CF6, #EC4899);
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            opacity: 1;
+            transition: opacity 0.5s ease;
+        }
+
+        .loading-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .loading-icon {
+            font-size: 48px;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+        }
+
+        .loading-text {
+            font-size: 18px;
+            font-weight: 700;
+            margin-top: 16px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header-stats {
+                display: none;
+            }
+
+            .legend, .layer-control {
+                max-width: calc(100vw - 30px);
+            }
+        }
+
+        /* Fix leaflet attribution */
+        .leaflet-control-attribution {
+            font-size: 9px !important;
+        }
+    </style>
+</head>
+<body>
+
+<!-- LOADING OVERLAY -->
+<div class="loading-overlay" id="loadingOverlay">
+    <i class="fas fa-lungs loading-icon"></i>
+    <div class="loading-text">Loading Map...</div>
+</div>
+
+<!-- MAP CONTAINER -->
+<div id="map"></div>
+
+<!-- HEADER -->
+<div class="map-header">
+    <div class="header-title">
+        <i class="fas fa-lungs header-icon"></i>
+        <div class="header-text">
+            <h1>SafeUrLungs</h1>
+            <p>Real-Time Air Quality Map</p>
+        </div>
+    </div>
+    <div class="header-stats">
+        <div class="stat-badge">
+            <div class="stat-number" id="totalLocations">0</div>
+            <div class="stat-label">Locations</div>
+        </div>
+        <div class="stat-badge">
+            <div class="stat-number" id="safeSpots">0</div>
+            <div class="stat-label">Safe Spots</div>
+        </div>
+    </div>
+</div>
+
+<!-- LAYER CONTROL -->
+<div class="layer-control">
+    <h3><i class="fas fa-layer-group"></i> Layers</h3>
+    <div class="layer-item">
+        <label class="toggle-switch">
+            <input type="checkbox" id="toggleMarkers" checked>
+            <span class="toggle-slider"></span>
+        </label>
+        <span class="layer-label">Markers</span>
+    </div>
+</div>
+
+<!-- LEGEND -->
+<div class="legend">
+    <h3><i class="fas fa-palette"></i> Air Quality Index</h3>
+    <div class="legend-item">
+        <div class="legend-color" style="background: linear-gradient(135deg, #10B981, #059669);">😊</div>
+        <div class="legend-text">
+            <div class="legend-label" style="color: #10B981;">Excellent</div>
+            <div class="legend-range">AQI 0-50</div>
+        </div>
+    </div>
+    <div class="legend-item">
+        <div class="legend-color" style="background: linear-gradient(135deg, #4ADE80, #22C55E);">🙂</div>
+        <div class="legend-text">
+            <div class="legend-label" style="color: #22C55E;">Good</div>
+            <div class="legend-range">AQI 51-100</div>
+        </div>
+    </div>
+    <div class="legend-item">
+        <div class="legend-color" style="background: linear-gradient(135deg, #FACC15, #EAB308);">😐</div>
+        <div class="legend-text">
+            <div class="legend-label" style="color: #CA8A04;">Moderate</div>
+            <div class="legend-range">AQI 101-150</div>
+        </div>
+    </div>
+    <div class="legend-item">
+        <div class="legend-color" style="background: linear-gradient(135deg, #F97316, #EA580C);">😷</div>
+        <div class="legend-text">
+            <div class="legend-label" style="color: #EA580C;">Unhealthy</div>
+            <div class="legend-range">AQI 151-200</div>
+        </div>
+    </div>
+    <div class="legend-item">
+        <div class="legend-color" style="background: linear-gradient(135deg, #DC2626, #991B1B);">⚠️</div>
+        <div class="legend-text">
+            <div class="legend-label" style="color: #DC2626;">Hazardous</div>
+            <div class="legend-range">AQI 201+</div>
+        </div>
+    </div>
+</div>
+
+<!-- LEAFLET JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<!-- FIREBASE -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+<script>
+    // Firebase Config
+    const firebaseConfig = {
+        apiKey: "AIzaSyCErCqpDMZxBrarOLYnjbsRDNJVukLT2pM",
+        authDomain: "reactnative111-d22bc.firebaseapp.com",
+        databaseURL: "https://reactnative111-d22bc-default-rtdb.firebaseio.com",
+        projectId: "reactnative111-d22bc",
+        storageBucket: "reactnative111-d22bc.firebasestorage.app",
+        messagingSenderId: "409863493439",
+        appId: "1:409863493439:web:5a7f66b219ff5b322d658a"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+    const pointsRef = database.ref("/points");
+
+    // Initialize Map IMMEDIATELY
+    const map = L.map('map', {
+        zoomControl: true,
+        attributionControl: true
+    }).setView([-7.7956, 110.3695], 13);
+
+    // Add basemap - FASTER tile server
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: '© OpenStreetMap'
+    }).addTo(map);
+
+    // Hide loading as soon as map loads
+    map.whenReady(function() {
+        hideLoading();
+    });
+
+    // Marker group
+    const markerGroup = L.layerGroup().addTo(map);
+
+    // AQI Functions
+    function getAQIInfo(aqi) {
+        if (aqi <= 50) {
+            return { 
+                label: 'Excellent', 
+                color: '#10B981', 
+                gradient: 'linear-gradient(135deg, #10B981, #059669)',
+                emoji: '😊',
+                advice: 'Perfect for outdoor activities!'
+            };
+        }
+        if (aqi <= 100) {
+            return { 
+                label: 'Good', 
+                color: '#4ADE80', 
+                gradient: 'linear-gradient(135deg, #4ADE80, #22C55E)',
+                emoji: '🙂',
+                advice: 'Great day for exercise!'
+            };
+        }
+        if (aqi <= 150) {
+            return { 
+                label: 'Moderate', 
+                color: '#FACC15', 
+                gradient: 'linear-gradient(135deg, #FACC15, #EAB308)',
+                emoji: '😐',
+                advice: 'Sensitive groups should limit outdoor time.'
+            };
+        }
+        if (aqi <= 200) {
+            return { 
+                label: 'Unhealthy', 
+                color: '#F97316', 
+                gradient: 'linear-gradient(135deg, #F97316, #EA580C)',
+                emoji: '😷',
+                advice: 'Reduce outdoor activities.'
+            };
+        }
+        return { 
+            label: 'Hazardous', 
+            color: '#DC2626', 
+            gradient: 'linear-gradient(135deg, #DC2626, #991B1B)',
+            emoji: '⚠️',
+            advice: 'Stay indoors!'
+        };
+    }
+
+    function createCustomIcon(emoji, gradient) {
+        return L.divIcon({
+            className: 'custom-marker',
+            html: `<div style="width: 36px; height: 36px; background: ${gradient}; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; box-shadow: 0 3px 10px rgba(0,0,0,0.3); border: 3px solid white;">${emoji}</div>`,
+            iconSize: [36, 36],
+            iconAnchor: [18, 36],
+            popupAnchor: [0, -36]
+        });
+    }
+
+    // Load markers from Firebase - AMBIL SEMUA DATA LENGKAP
+    let totalLocations = 0;
+    let safeSpots = 0;
+
+    pointsRef.on("value", (snapshot) => {
+        markerGroup.clearLayers();
+        totalLocations = 0;
+        safeSpots = 0;
+
+        const data = snapshot.val();
+        if (!data) {
+            document.getElementById('totalLocations').textContent = '0';
+            document.getElementById('safeSpots').textContent = '0';
+            return;
+        }
+
+        Object.keys(data).forEach((key) => {
+            const point = data[key];
+            if (!point.coordinates) return;
+
+            // ==========================================
+            // AMBIL SEMUA DATA DARI FIREBASE (LENGKAP!)
+            // ==========================================
+            const id = key;
+            const name = point.name || 'Unnamed Location';
+            const coordinates = point.coordinates;
+            const coords = coordinates.split(",").map(parseFloat);
+            const accuracy = point.accuracy || null;
+            const aqi = point.aqi || 50;
+            const aqiCategory = point.aqiCategory || null;
+            const emoji = point.emoji || null;
+
+            // Dapatkan info AQI (untuk warna & fallback data)
+            const aqiInfo = getAQIInfo(aqi);
+
+            // Gunakan emoji dari Firebase, atau fallback ke emoji default
+            const displayEmoji = emoji || aqiInfo.emoji;
+            
+            // Gunakan kategori dari Firebase, atau fallback ke kategori default
+            const displayCategory = aqiCategory || aqiInfo.label;
+
+            totalLocations++;
+            if (aqi <= 100) safeSpots++;
+
+            // Buat marker dengan emoji dari Firebase
+            const marker = L.marker(coords, {
+                icon: createCustomIcon(displayEmoji, aqiInfo.gradient)
+            });
+
+            const popup = `
+                <div style="font-family: 'Inter', sans-serif;">
+                    <div class="popup-header">
+                        <div class="popup-title">${displayEmoji} ${name}</div>
+                        <div class="popup-coords">${coords[0].toFixed(5)}, ${coords[1].toFixed(5)}</div>
+                    </div>
+                    <div class="popup-body">
+                        <div class="popup-aqi">
+                            <span class="popup-aqi-label">AQI</span>
+                            <span class="popup-aqi-value" style="background: ${aqiInfo.gradient};">${aqi}</span>
+                        </div>
+                        <div style="padding: 10px; background: ${aqiInfo.color}20; border-radius: 8px; margin-bottom: 10px;">
+                            <div style="font-size: 13px; font-weight: 700; color: ${aqiInfo.color}; margin-bottom: 3px;">
+                                ${displayEmoji} ${displayCategory}
+                            </div>
+                            <div style="font-size: 11px; color: #6B7280; line-height: 1.4;">
+                                ${aqiInfo.advice}
+                            </div>
+                            ${accuracy ? `<div style="font-size: 10px; color: #9CA3AF; margin-top: 5px; display: flex; align-items: center; gap: 4px;">
+                                <i class="fas fa-crosshairs"></i> Accuracy: ${Math.round(accuracy)}m
+                            </div>` : ''}
+                        </div>
+                        <div class="popup-actions">
+                            <button class="popup-btn btn-navigate" onclick="navigateToLocation('${coords[0]}', '${coords[1]}')">
+                                <i class="fas fa-directions"></i> Go
+                            </button>
+                            <button class="popup-btn btn-delete" onclick="deletePoint('${key}')">
+                                <i class="fas fa-trash-alt"></i> Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            marker.bindPopup(popup, {
+                maxWidth: 240,
+                className: 'custom-popup'
+            });
+            
+            markerGroup.addLayer(marker);
+        });
+
+        document.getElementById('totalLocations').textContent = totalLocations;
+        document.getElementById('safeSpots').textContent = safeSpots;
+    });
+
+    // Navigation
+    function navigateToLocation(lat, lng) {
+        const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+        window.open(url, '_blank');
+    }
+
+    // Delete marker
+    function deletePoint(key) {
+        if (confirm("Delete this location?")) {
+            pointsRef.child(key).remove()
+                .then(() => alert('Deleted!'))
+                .catch((error) => alert('Error: ' + error.message));
+        }
+    }
+
+    // Toggle markers
+    document.getElementById("toggleMarkers").addEventListener("change", (e) => {
+        if (e.target.checked) {
+            map.addLayer(markerGroup);
+        } else {
+            map.removeLayer(markerGroup);
+        }
+    });
+
+    // Hide loading
+    function hideLoading() {
+        const overlay = document.getElementById('loadingOverlay');
+        overlay.classList.add('hidden');
+    }
+
+    // Position zoom control
+    map.zoomControl.setPosition('bottomright');
+
+</script>
+
+</body>
+</html>
